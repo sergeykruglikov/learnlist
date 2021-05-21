@@ -31,14 +31,11 @@ def read_from_dictionary(username):
             working_dictionary = eval(file_content)
         except Exception as exc:
             return 'Hmm... Something`s wrong with dictionary:\n', str(exc)
-
     return working_dictionary
 
 
-def update_dictionary(username, user_input_1, user_input_2):
+def update_dictionary(username, words_in_string_1, words_in_string_2):
     dictionary_file = f'./{username}_dictionary.ll'
-    words_in_string_1 = user_input_1
-    words_in_string_2 = user_input_2
     temp_dictionary = {}
     try:
         list_1 = words_in_string_1.split('\n')
@@ -72,7 +69,7 @@ def delete_item(username, item):
     return f'Item "{item}" deleted.'
 
 
-def show_list(username):
+def show_list(username, position, step):
     output = ''
     try:
         working_dictionary = read_from_dictionary(username)
@@ -80,7 +77,12 @@ def show_list(username):
         return 'Dictionary is epmty!\nTo update your dictionary send /update'
     for item, value in working_dictionary.items():
         output += item + ' - ' + value + '\n'
-    return output + f'\nTotal: {len(working_dictionary.items())}'
+    output += f'\nTotal: {len(working_dictionary.items())}'
+    if len(output) >= 4096:
+        # output range: from current counter position plus step value
+        return output[position:position + step]
+    else:
+        return output
 
 
 def start_training(username, answer=''):
@@ -112,7 +114,7 @@ def start_training(username, answer=''):
 
 
 # Default mode
-mode = "training"
+mode = 'training'
 
 previous_question = None
 previous_answer = None
@@ -150,9 +152,16 @@ def training_message(msg):
 
 @bot.message_handler(commands=['show'])
 def training_message(msg):
-    # global mode
-    # mode = 'clear'
-    bot.send_message(msg.chat.id, show_list(msg.from_user.username))
+    # Telegram doesn't support messages > 4096, we need to split output in case if dictionary has exceeded 4096
+    # To split dictionary by 2+ messages we use position and step
+    username = msg.from_user.username
+    position = 0
+    step = 4090
+    while 'Total' not in show_list(username, position, step):
+        bot.send_message(msg.chat.id, show_list(username, position, step))
+        # change position:
+        position += step
+    bot.send_message(msg.chat.id, show_list(username, position, step))
 
 
 @bot.message_handler(commands=['training'])
